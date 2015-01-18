@@ -36,8 +36,9 @@ class PubProtocol(basic.Int32StringReceiver):
         print " ".join("{:02x}".format(ord(c)) for c in string)
         event = messages_pb2.Event()
         event.ParseFromString(string)
+        s = "<{}> {}".format(self.transport.getHandle().getpeername(), str(event))
         for c in self.factory.clients:
-                c.sendString("<{}> {}".format(self.transport.getHandle().getpeername(), str(event)))
+                c.sendString(s)
 
 class PubFactory(protocol.Factory):
     def __init__(self):

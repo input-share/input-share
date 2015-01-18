@@ -27,9 +27,39 @@ from twisted.internet import reactor
 from twisted.internet.protocol import Protocol, ReconnectingClientFactory
 from twisted.internet.task import LoopingCall
 
+from win32con import WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP,\
+    WM_LBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_RBUTTONDBLCLK,\
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MBUTTONDBLCLK, WM_MOUSEWHEEL
+
 from gen import messages_pb2
 
+'''
+msg_to_name = {WM_MOUSEMOVE : 'mouse move', WM_LBUTTONDOWN : 'mouse left down',
+                 WM_LBUTTONUP : 'mouse left up', WM_LBUTTONDBLCLK : 'mouse left double',
+                 WM_RBUTTONDOWN : 'mouse right down', WM_RBUTTONUP : 'mouse right up',
+                 WM_RBUTTONDBLCLK : 'mouse right double',  WM_MBUTTONDOWN : 'mouse middle down',
+                 WM_MBUTTONUP : 'mouse middle up', WM_MBUTTONDBLCLK : 'mouse middle double',
+                 WM_MOUSEWHEEL : 'mouse wheel',  WM_KEYDOWN : 'key down',
+                 WM_KEYUP : 'key up', WM_CHAR : 'key char', WM_DEADCHAR : 'key dead char',
+                 WM_SYSKEYDOWN : 'key sys down', WM_SYSKEYUP : 'key sys up',
+                 WM_SYSCHAR : 'key sys char', WM_SYSDEADCHAR : 'key sys dead char'}
+'''
+
 class Echo(basic.Int32StringReceiver):
+    __event_pb_map = {
+        WM_MOUSEMOVE: messages_pb2.MouseEvent.MOUSE_MOVE, #@UndefinedVariable
+        WM_LBUTTONDOWN: messages_pb2.MouseEvent.MOUSE_LEFT_DOWN, #@UndefinedVariable
+        WM_LBUTTONUP: messages_pb2.MouseEvent.MOUSE_LEFT_UP, #@UndefinedVariable
+        WM_LBUTTONDBLCLK: messages_pb2.MouseEvent.MOUSE_LEFT_DOUBLE, #@UndefinedVariable
+        WM_RBUTTONDOWN: messages_pb2.MouseEvent.MOUSE_RIGHT_DOWN, #@UndefinedVariable
+        WM_RBUTTONUP: messages_pb2.MouseEvent.MOUSE_RIGHT_UP, #@UndefinedVariable
+        WM_RBUTTONDBLCLK: messages_pb2.MouseEvent.MOUSE_RIGHT_DOUBLE, #@UndefinedVariable
+        WM_MBUTTONDOWN: messages_pb2.MouseEvent.MOUSE_MIDDLE_DOWN, #@UndefinedVariable
+        WM_MBUTTONUP: messages_pb2.MouseEvent.MOUSE_MIDDLE_UP, #@UndefinedVariable
+        WM_MBUTTONDBLCLK: messages_pb2.MouseEvent.MOUSE_MIDDLE_DOUBLE, #@UndefinedVariable
+        WM_MOUSEWHEEL: messages_pb2.MouseEvent.MOUSE_WHEEL, #@UndefinedVariable
+    }
+    
     def __init__(self):
         self.hook_manager = pyHook.HookManager()
         self.hook_manager.MouseAll = self.onMouseEvent
@@ -43,7 +73,9 @@ class Echo(basic.Int32StringReceiver):
     def onMouseEvent(self, event):
         evt = messages_pb2.Event()
         me = evt.mouse_events.add()
-        me.text = str(event.Position) + ' ' + event.GetMessageName()
+        me.position.x = event.Position[0]
+        me.position.y = event.Position[1]
+        me.type = self.__event_pb_map.get(event.Message)
         self.sendString(evt.SerializeToString())
         return True
     

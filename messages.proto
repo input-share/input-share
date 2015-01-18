@@ -1,11 +1,43 @@
 package messages;
 
+/*
+ *   msg_to_name = {WM_MOUSEMOVE : 'mouse move', WM_LBUTTONDOWN : 'mouse left down',
+                 WM_LBUTTONUP : 'mouse left up', WM_LBUTTONDBLCLK : 'mouse left double',
+                 WM_RBUTTONDOWN : 'mouse right down', WM_RBUTTONUP : 'mouse right up',
+                 WM_RBUTTONDBLCLK : 'mouse right double',  WM_MBUTTONDOWN : 'mouse middle down',
+                 WM_MBUTTONUP : 'mouse middle up', WM_MBUTTONDBLCLK : 'mouse middle double',
+                 WM_MOUSEWHEEL : 'mouse wheel',  WM_KEYDOWN : 'key down',
+                 WM_KEYUP : 'key up', WM_CHAR : 'key char', WM_DEADCHAR : 'key dead char',
+                 WM_SYSKEYDOWN : 'key sys down', WM_SYSKEYUP : 'key sys up',
+                 WM_SYSCHAR : 'key sys char', WM_SYSDEADCHAR : 'key sys dead char'}
+ */
+
+message Position {
+	required sint32 x = 1;
+	required sint32 y = 2;
+}
+
 message KeyEvent {
 	required string text = 1;
 }
 
 message MouseEvent {
-	required string text = 1;
+	enum EventType {
+		MOUSE_MOVE = 1;
+		MOUSE_LEFT_DOWN = 2;
+		MOUSE_LEFT_UP = 3;
+		MOUSE_LEFT_DOUBLE = 4;
+		MOUSE_RIGHT_DOWN = 5;
+		MOUSE_RIGHT_UP = 6;
+		MOUSE_RIGHT_DOUBLE = 7;
+		MOUSE_MIDDLE_DOWN = 8;
+		MOUSE_MIDDLE_UP = 9;
+		MOUSE_MIDDLE_DOUBLE = 10;
+		MOUSE_WHEEL = 11;
+	}
+
+	required Position position = 1;
+	required EventType type = 2;
 }
 
 message Event {
