@@ -1,0 +1,15 @@
+package messages;
+
+message KeyEvent {
+	required string text = 1;
+}
+
+message MouseEvent {
+	required string text = 1;
+}
+
+message Event {
+	repeated KeyEvent key_events = 1;
+	repeated MouseEvent mouse_events = 2;
+}
+
