@@ -52,4 +52,6 @@ docs/_build/
 
 # PyBuilder
 target/
-gen
+
+gen/*
+!gen/__init__.py

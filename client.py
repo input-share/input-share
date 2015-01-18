@@ -20,14 +20,16 @@
 from sys import stdout
 from threading import Thread
 
+import pyHook, pythoncom
+
+from twisted.protocols import basic
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol, ReconnectingClientFactory
-import pyHook, pythoncom
 from twisted.internet.task import LoopingCall
 
+from gen import messages_pb2
 
-
-class Echo(Protocol):
+class Echo(basic.Int32StringReceiver):
     def __init__(self):
         self.hook_manager = pyHook.HookManager()
         self.hook_manager.MouseAll = self.onMouseEvent
@@ -35,16 +37,21 @@ class Echo(Protocol):
         self.hook_manager.HookMouse()
         self.hook_manager.HookKeyboard()
         
-    def dataReceived(self, data):
+    def stringReceived(self, data):
         stdout.write(data)
          
     def onMouseEvent(self, event):
-        #print event.Position
-        self.transport.write(str(event.Position) + ' ' + event.GetMessageName() + '\r\n')
+        evt = messages_pb2.Event()
+        me = evt.mouse_events.add()
+        me.text = str(event.Position) + ' ' + event.GetMessageName()
+        self.sendString(evt.SerializeToString())
         return True
     
     def onKeyboardEvent(self, event):
-        self.transport.write(event.GetKey() + ' ' + event.GetMessageName() + '\r\n')
+        evt = messages_pb2.Event()
+        ke = evt.key_events.add()
+        ke.text = event.GetKey() + ' ' + event.GetMessageName()
+        self.sendString(evt.SerializeToString())
         return True
     
     def pumpMessages(self):
