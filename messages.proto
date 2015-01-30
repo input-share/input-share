@@ -17,8 +17,21 @@ message Position {
 	required sint32 y = 2;
 }
 
+/** CLIENT-SENT EVENTS **/
+
 message KeyEvent {
-	required string text = 1;
+	enum EventType {
+		KEY_DOWN = 1;
+		KEY_UP = 2;
+		CHAR = 3;
+		DEAD_CHAR = 4;
+		SYS_KEY_DOWN = 5;
+		SYS_KEY_UP = 6;
+		SYS_CHAR = 7;
+		SYS_DEAD_CHAR = 8;
+	}
+	required EventType type = 1;
+	required string ascii = 2;
 }
 
 message MouseEvent {
@@ -36,12 +49,42 @@ message MouseEvent {
 		MOUSE_WHEEL = 11;
 	}
 
-	required Position position = 1;
-	required EventType type = 2;
+	required EventType type = 1;
+	required Position position = 2;
+}
+
+message AuthenticateEvent {
+	required string password = 1;
+}
+
+message SubscribeScreenEvent {
+	required uint32 width = 1;
+	required uint32 height = 2;
 }
 
 message Event {
-	repeated KeyEvent key_events = 1;
-	repeated MouseEvent mouse_events = 2;
+	optional AuthenticateEvent authenticate_event = 1;
+	optional SubscribeScreenEvent subscribe_screen_event = 2;
+	repeated KeyEvent key_events = 3;
+	repeated MouseEvent mouse_events = 4;
+}
+
+
+
+/** SERVER-SENT EVENTS **/
+
+message AuthenticateResponseEvent {
+	required bool authenticated = 1;
+	optional string message = 2;
+}
+
+message SubscribeScreenResponseEvent {
+	required bool subscribed = 1;
+	optional string message = 2;
+}
+
+message ServerEvent {
+	optional AuthenticateResponseEvent authenticate_response_event = 1;
+	optional SubscribeScreenResponseEvent subscribe_screen_response_event = 2;
 }
 

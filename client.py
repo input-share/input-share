@@ -29,23 +29,26 @@ from twisted.internet.task import LoopingCall
 
 from win32con import WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP,\
     WM_LBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_RBUTTONDBLCLK,\
-    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MBUTTONDBLCLK, WM_MOUSEWHEEL
+    WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MBUTTONDBLCLK, WM_MOUSEWHEEL, WM_KEYDOWN,\
+    WM_KEYUP, WM_CHAR, WM_DEADCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP, WM_SYSCHAR,\
+    WM_SYSDEADCHAR, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN
 
 from gen import messages_pb2
 
 '''
-msg_to_name = {WM_MOUSEMOVE : 'mouse move', WM_LBUTTONDOWN : 'mouse left down',
-                 WM_LBUTTONUP : 'mouse left up', WM_LBUTTONDBLCLK : 'mouse left double',
-                 WM_RBUTTONDOWN : 'mouse right down', WM_RBUTTONUP : 'mouse right up',
-                 WM_RBUTTONDBLCLK : 'mouse right double',  WM_MBUTTONDOWN : 'mouse middle down',
-                 WM_MBUTTONUP : 'mouse middle up', WM_MBUTTONDBLCLK : 'mouse middle double',
-                 WM_MOUSEWHEEL : 'mouse wheel',  WM_KEYDOWN : 'key down',
-                 WM_KEYUP : 'key up', WM_CHAR : 'key char', WM_DEADCHAR : 'key dead char',
-                 WM_SYSKEYDOWN : 'key sys down', WM_SYSKEYUP : 'key sys up',
-                 WM_SYSCHAR : 'key sys char', WM_SYSDEADCHAR : 'key sys dead char'}
+Protocol handshake process
+1. Client sends credentials to server
+2. Server validates credentials if correct
+3. Client submits desktop screen dimensions
+4. Server adds the client screen to its virtual screenspace
+5. Server subscribes the client to input updates
+
+ 
 '''
 
-class Echo(basic.Int32StringReceiver):
+class Echo(basic.Int16StringReceiver):
+    password = 'client'
+    
     __event_pb_map = {
         WM_MOUSEMOVE: messages_pb2.MouseEvent.MOUSE_MOVE, #@UndefinedVariable
         WM_LBUTTONDOWN: messages_pb2.MouseEvent.MOUSE_LEFT_DOWN, #@UndefinedVariable
@@ -58,6 +61,15 @@ class Echo(basic.Int32StringReceiver):
         WM_MBUTTONUP: messages_pb2.MouseEvent.MOUSE_MIDDLE_UP, #@UndefinedVariable
         WM_MBUTTONDBLCLK: messages_pb2.MouseEvent.MOUSE_MIDDLE_DOUBLE, #@UndefinedVariable
         WM_MOUSEWHEEL: messages_pb2.MouseEvent.MOUSE_WHEEL, #@UndefinedVariable
+        
+        WM_KEYDOWN: messages_pb2.KeyEvent.KEY_DOWN, #@UndefinedVariable
+        WM_KEYUP: messages_pb2.KeyEvent.KEY_UP, #@UndefinedVariable
+        WM_CHAR: messages_pb2.KeyEvent.CHAR, #@UndefinedVariable
+        WM_DEADCHAR: messages_pb2.KeyEvent.DEAD_CHAR, #@UndefinedVariable
+        WM_SYSKEYDOWN: messages_pb2.KeyEvent.SYS_KEY_DOWN, #@UndefinedVariable
+        WM_SYSKEYUP: messages_pb2.KeyEvent.SYS_KEY_UP, #@UndefinedVariable
+        WM_SYSCHAR: messages_pb2.KeyEvent.SYS_CHAR, #@UndefinedVariable
+        WM_SYSDEADCHAR: messages_pb2.KeyEvent.SYS_DEAD_CHAR, #@UndefinedVariable
     }
     
     def __init__(self):
@@ -68,7 +80,47 @@ class Echo(basic.Int32StringReceiver):
         self.hook_manager.HookKeyboard()
         
     def stringReceived(self, data):
-        stdout.write(data)
+        event = messages_pb2.ServerEvent()
+        event.ParseFromString(data)
+        print " ".join("{:02x}".format(ord(c)) for c in data)
+        print event
+        if event.HasField('authenticate_response_event'):
+            self.onAuthenticateResponse(event.authenticate_response_event)
+            return
+        if event.HasField('subscribe_screen_response_event'):
+            self.onSubscribeScreenResponse(event.subscribe_screen_response_event)
+            return
+        
+    def connectionMade(self):
+        self.authenticate()
+        
+    def authenticate(self):
+        evt = messages_pb2.Event()
+        evt.authenticate_event.password = self.password
+        self.sendString(evt.SerializeToString())
+        
+    def onAuthenticateResponse(self, event):
+        if event.authenticated:
+            self.onAuthenticateSuccess(event)
+        else:
+            self.onAuthenticateFailure(event)
+            
+    def onAuthenticateSuccess(self, event):
+        self.sendSubscribeScreenEvent()
+    
+    def onAuthenticateFailure(self, event):
+        # TODO
+        pass
+    
+    def onSubscribeScreenResponse(self, event):
+        pass
+    
+    def sendSubscribeScreenEvent(self):
+        width, height = GetSystemMetrics(SM_CXVIRTUALSCREEN), GetSystemMetrics(SM_CYVIRTUALSCREEN)
+        outgoing = messages_pb2.Event()
+        outgoing.subscribe_screen_event.width = width
+        outgoing.subscribe_screen_event.height = height
+        self.sendString(outgoing.SerializeToString())
          
     def onMouseEvent(self, event):
         evt = messages_pb2.Event()
@@ -82,7 +134,8 @@ class Echo(basic.Int32StringReceiver):
     def onKeyboardEvent(self, event):
         evt = messages_pb2.Event()
         ke = evt.key_events.add()
-        ke.text = event.GetKey() + ' ' + event.GetMessageName()
+        ke.ascii = event.GetKey().upper()
+        ke.type = self.__event_pb_map.get(event.Message)
         self.sendString(evt.SerializeToString())
         return True
     
@@ -96,6 +149,7 @@ class ShareClientFactory(ReconnectingClientFactory):
     def buildProtocol(self, addr):
         print 'Connected.'
         print 'Resetting reconnection delay'
+        print ''
         self.resetDelay()
         p = Echo()
         lc = LoopingCall(p.pumpMessages)
@@ -110,5 +164,7 @@ class ShareClientFactory(ReconnectingClientFactory):
         print 'Connection failed. Reason: ', reason
         ReconnectingClientFactory.clientConnectionFailed(self, connector, reason) 
 
-reactor.connectTCP('localhost', 1020, ShareClientFactory()) #@UndefinedVariable
-reactor.run() #@UndefinedVariable
+if __name__ == '__main__':
+    from win32api import GetSystemMetrics
+    reactor.connectTCP('localhost', 1020, ShareClientFactory()) #@UndefinedVariable
+    reactor.run() #@UndefinedVariable
